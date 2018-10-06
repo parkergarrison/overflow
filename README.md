@@ -107,8 +107,8 @@ Exploit Mitigations and Bypasses
 		
 			
 	Exercise 2: Bypass ASLR, no NX with Trampoline
-		Compile wisdom-basic.c without NX
-			gcc wisdom-basic.c -g -fno-stack-protector -z execstack -o wisdom_e2.out
+		Compile wisdom_e2.c without NX
+			gcc wisdom_e2.c -g -fno-stack-protector -z execstack -o wisdom_e2.out
 		
 		Find useful ESP gadgets
 			gdb-peda$ jmpcall -r esp
