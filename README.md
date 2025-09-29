@@ -75,6 +75,12 @@ Exploit Mitigations and Bypasses
 		Turn off ASLR
 			echo 0 >| /proc/sys/kernel/randomize_va_space
 		
+		Run the program
+			./wisdom_e0.out
+		
+		Debug the program
+			gdb -p $(pgrep wisdom_e0) # only works if there is exactly 1 instance running
+		
 		Generate a cyclic pattern of length 300
 			chmod +x ./pat_gen.py
 			./pat_gen.py 300
