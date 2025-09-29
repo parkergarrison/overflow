@@ -1,15 +1,27 @@
-# Buffer Overflows 2019
+# Buffer Overflows 2025
 ## Parker Garrison
 
 ```
 To get started
+	Clone the visual demo
+		git clone https://github.com/parkergarrison/visualoverflow
+		
 	You will need the files: segment_mem.c, wisdom.c, runescape.sh, pat_gen.py, pat_ind.py
 		git clone https://github.com/parkergarrison/overflow
 		cd overflow
-
-	Download and install gdb-peda to execute some of the gdb commands such as checksec:
-		git clone https://github.com/longld/peda.git ~/peda
-		echo "source ~/peda/peda.py" >> ~/.gdbinit
+	
+	Download a cross-compiler for 32-bit binaries.
+		sudo apt-get install gcc-multilib
+	
+	
+	Download and install gef
+		wget -O ~/.gdbinit-gef.py -q https://gef.blah.cat/py
+		echo source ~/.gdbinit-gef.py >> ~/.gdbinit
+		
+		Formerly we used Python Exploit Development Assistance, but it is no longer updated.
+		gdb-peda to execute some of the gdb commands such as checksec:
+			git clone https://github.com/longld/peda.git ~/peda
+			echo "source ~/peda/peda.py" >> ~/.gdbinit
 	
 	Download ROPgadget for one of the challenges:
 		git clone https://github.com/JonathanSalwan/ROPgadget.git
@@ -22,7 +34,7 @@ Memory and the Stack
 			setarch $(uname -m) -R $(pwd)/filename.out # replace with actual full path to file
 	
 	Compile segment_mem.c
-		gcc segment_mem.c -o segment_mem
+		gcc -m32 segment_mem.c -o segment_mem
 	
 	Run this binary to examine addresses which are in various memory segments:
 		./segment_mem
@@ -57,7 +69,11 @@ Memory and the Stack
 Exploit Mitigations and Bypasses
 	Exercise 0: No Mitigations
 		Compile wisdom-basic.c without NX
-			gcc wisdom-basic.c -g -fno-stack-protector -z execstack -o wisdom_e0.out 
+			gcc -m32 wisdom-basic.c -g -fno-stack-protector -z execstack -o wisdom_e0.out -std=c99
+			# Old standard allows extremely vulnerable "gets" function to be used
+		
+		Turn off ASLR
+			echo 0 >| /proc/sys/kernel/randomize_va_space
 		
 		Generate a cyclic pattern of length 300
 			chmod +x ./pat_gen.py
